@@ -1,0 +1,5 @@
+*.out
+*.mod
+*.dat
+fort.*
+restart*.in
