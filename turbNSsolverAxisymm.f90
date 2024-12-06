@@ -1,4 +1,4 @@
-MODULE TWODIMENSION
+MODULE AXISYMMETRIC
     IMPLICIT none
     INTEGER, PARAMETER :: NN = 60000, NB = 6000    
     CHARACTER*50 :: FNAMEGRID, FNAMEBC, CHOICE, RESTARTTEMPFILE
@@ -93,16 +93,16 @@ MODULE TWODIMENSION
             DL41 = DSQRT((X4 - X1)*(X4 - X1) + (Y4 - Y1)*(Y4 - Y1))           
             DL(I) = DMIN1(DL12, DL23, DL34, DL41)
             
-            SC1X(I) = (Y2 - Y1)
-            SC1Y(I) = - (X2 - X1)
-            SC2X(I) = (Y3 - Y2)
-            SC2Y(I) = - (X3 - X2)
-            SC3X(I) = (Y4 - Y3)
-            SC3Y(I) = - (X4 - X3)
-            SC4X(I) = (Y1 - Y4)
-            SC4Y(I) = - (X1 - X4)
+            SC1X(I) = (Y2-Y1)*(Y1+Y2)*0.5D0
+            SC1Y(I) = -(X2-X1)*(Y1+Y2)*0.5D0
+            SC2X(I) = (Y3-Y2)*(Y2+Y3)*0.5D0
+            SC2Y(I) = -(X3-X2)*(Y2+Y3)*0.5D0
+            SC3X(I) = (Y4-Y3)*(Y3+Y4)*0.5D0
+            SC3Y(I) = -(X4-X3)*(Y3+Y4)*0.5D0
+            SC4X(I) = (Y1-Y4)*(Y4+Y1)*0.5D0
+            SC4Y(I) = -(X1-X4)*(Y4+Y1)*0.5D0
 
-            VOL(I) = 0.5D0*((X3 - X1)*(Y4 - Y2) - (X4 - X2)*(Y3 - Y1))
+            VOL(I) = 0.5D0*((X3-X1)*(Y4-Y2)-(X4-X2)*(Y3-Y1))*YCC(I)
 
             IF (VOL(I) .LE. 0.0D0) THEN
                 VOL(I) = - VOL(I)
@@ -572,7 +572,14 @@ MODULE TWODIMENSION
             RHOAVG = 0.25D0*(RHOA + RHOB + RHOC + RHOD)
             RAVG = 0.25D0*(RA + RB + RC + RD)
             
-            DIVVEL = DUX + DVY
+            YAVG=0.5D0*(YB+YD)
+			VAVG=0.5D0*(VB+VD)
+			IF(YAVG .LT. 0.001D0)THEN
+			    VBYY = DVY
+			ELSE
+			    VBYY = VAVG/YAVG
+			ENDIF
+			DIVVEL = DUX + DVY + VBYY
             
             AMU = (0.00000011848D0)*DSQRT(AMOL)*(TAVG**0.6D0)
             AK = AMU*CP/PRANDTL
@@ -663,7 +670,14 @@ MODULE TWODIMENSION
             RHOAVG = 0.25D0*(RHOA + RHOB + RHOC + RHOD)
             RAVG = 0.25D0*(RA + RB + RC + RD)
             
-            DIVVEL = DUX + DVY
+            YAVG=0.5D0*(YB+YD)
+			VAVG=0.5D0*(VB+VD)
+			IF(YAVG .LT. 0.001D0)THEN
+			    VBYY = DVY
+			ELSE
+			    VBYY = VAVG/YAVG
+			ENDIF
+			DIVVEL = DUX + DVY + VBYY
             
             AMU = (0.00000011848D0)*DSQRT(AMOL)*(TAVG**0.6D0)
             AK = AMU*CP/PRANDTL
@@ -754,7 +768,14 @@ MODULE TWODIMENSION
             RHOAVG = 0.25D0*(RHOA + RHOB + RHOC + RHOD)
             RAVG = 0.25D0*(RA + RB + RC + RD)
             
-            DIVVEL = DUX + DVY
+            YAVG=0.5D0*(YB+YD)
+			VAVG=0.5D0*(VB+VD)
+			IF(YAVG .LT. 0.001D0)THEN
+			    VBYY = DVY
+			ELSE
+			    VBYY = VAVG/YAVG
+			ENDIF
+			DIVVEL = DUX + DVY + VBYY
             
             AMU = (0.00000011848D0)*DSQRT(AMOL)*(TAVG**0.6D0)
             AK = AMU*CP/PRANDTL
@@ -845,7 +866,14 @@ MODULE TWODIMENSION
             RHOAVG = 0.25D0*(RHOA + RHOB + RHOC + RHOD)
             RAVG = 0.25D0*(RA + RB + RC + RD)
             
-            DIVVEL = DUX + DVY
+            YAVG=0.5D0*(YB+YD)
+			VAVG=0.5D0*(VB+VD)
+			IF(YAVG .LT. 0.001D0)THEN
+			    VBYY = DVY
+			ELSE
+			    VBYY = VAVG/YAVG
+			ENDIF
+			DIVVEL = DUX + DVY + VBYY
             
             AMU = (0.00000011848D0)*DSQRT(AMOL)*(TAVG**0.6D0)
             AK = AMU*CP/PRANDTL
@@ -962,12 +990,19 @@ MODULE TWODIMENSION
             DEE = 0.0D0
             IF(PHI > 0.0D0) DEE = DRX*DRX + DRY*DRY
             
-            DIVVEL = DUX + DVY
+            IF(YCC(I) .LT. 0.001D0)THEN
+                VBYY = DVY
+            ELSE
+                VBYY = V(I)/YCC(I)
+            ENDIF
+            DIVVEL = DUX + DVY + VBYY
             
-            PK = AMUT/RHO*(DUX*DUX + DVY*DVY + DUX*DUX + DVY*DVY + (DUY + DVX)*(DUY + DVX) - DIV23*DIVVEL*DIVVEL)
+            PK = AMUT/RHO*(DUX*DUX + DVY*DVY + VBYY*VBYY + DUX*DUX + DVY*DVY + VBYY*VBYY + (DUY + DVX)*(DUY + DVX) - DIV23*DIVVEL*DIVVEL)
             PK = DMAX1(PK, 0.0D0)
-            
             SOURCE5(I) = (RHO*(CONST1 - CONST2*FR2)*DSQRT(RI*PK) - RHO*CONST3*DEE)*(AMUT/DMAX1(AMUT, 0.001D0*AMU))**NPSEUDO
+            
+            TTT = (AMU+AMUT)*(VBYY + VBYY - DIV23*DIVVEL)
+			SOURCE3(I) = (P(I)-TTT)/YCC(I)            
         ENDDO
         RETURN
     ENDSUBROUTINE SOURCETERMS
@@ -1062,11 +1097,11 @@ MODULE TWODIMENSION
           CLOSE(35)
           CLOSE(31)
     ENDSUBROUTINE POSTPROCESS
-ENDMODULE TWODIMENSION
+ENDMODULE AXISYMMETRIC
 
 
 PROGRAM MAINSOLVER
-    USE TWODIMENSION
+    USE AXISYMMETRIC
     IMPLICIT none
 
         OPEN(25, FILE = 'flow.in')
@@ -1306,14 +1341,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC3(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC3(N)
                         DO WHILE (NC3(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1321,10 +1356,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC3(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 2)THEN
                         DNR = DSQRT(SC2X(NP)*SC2X(NP) + SC2Y(NP)*SC2Y(NP))
                         ENX = - SC2X(NP)/DNR
@@ -1334,14 +1369,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)   
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC4(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC4(N)
                         DO WHILE (NC4(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1349,10 +1384,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC4(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 3)THEN
                         DNR = DSQRT(SC3X(NP)*SC3X(NP) + SC3Y(NP)*SC3Y(NP))
                         ENX = - SC3X(NP)/DNR
@@ -1362,14 +1397,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)     
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC1(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC1(N)
                         DO WHILE (NC1(N) .NE. n)
                             N1 = NOD(N, 1)
@@ -1377,10 +1412,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC1(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 4)THEN
                         DNR = DSQRT(SC4X(NP)*SC4X(NP) + SC4Y(NP)*SC4Y(NP))
                         ENX = - SC4X(NP)/DNR
@@ -1390,14 +1425,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)      
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N3) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC2(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC2(N)
                         DO WHILE (NC2(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1405,10 +1440,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC2(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ENDIF
                     
                     RHO = C1(NP)
@@ -1703,14 +1738,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC3(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC3(N)
                         DO WHILE (NC3(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1718,10 +1753,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC3(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 2)THEN
                         DNR = DSQRT(SC2X(NP)*SC2X(NP) + SC2Y(NP)*SC2Y(NP))
                         ENX = - SC2X(NP)/DNR
@@ -1731,14 +1766,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)   
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC4(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC4(N)
                         DO WHILE (NC4(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1746,10 +1781,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC4(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 3)THEN
                         DNR = DSQRT(SC3X(NP)*SC3X(NP) + SC3Y(NP)*SC3Y(NP))
                         ENX = - SC3X(NP)/DNR
@@ -1759,14 +1794,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)     
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC1(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC1(N)
                         DO WHILE (NC1(N) .NE. n)
                             N1 = NOD(N, 1)
@@ -1774,10 +1809,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC1(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 4)THEN
                         DNR = DSQRT(SC4X(NP)*SC4X(NP) + SC4Y(NP)*SC4Y(NP))
                         ENX = - SC4X(NP)/DNR
@@ -1787,14 +1822,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)      
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N3) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC2(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC2(N)
                         DO WHILE (NC2(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -1802,10 +1837,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC2(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ENDIF
                     
                     RHO = C1(NP)
@@ -1927,7 +1962,7 @@ PROGRAM MAINSOLVER
                     (F3I + F3(NCC3))*SX3 + & 
                     (G3I + G3(NCC3))*SY3 + & 
                     (F3I + F3(NCC4))*SX4 + &
-                    (G3I + G3(NCC4))*SY4)
+                    (G3I + G3(NCC4))*SY4) - VOL(I)*SOURCE3(I)
                 R4(I) = 0.5D0*(&
                     (F4I + F4(NCC1))*SX1 + &
                     (G4I + G4(NCC1))*SY1 + &                   
@@ -2098,14 +2133,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC3(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC3(N)
                         DO WHILE (NC3(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2113,10 +2148,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC3(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 2)THEN
                         DNR = DSQRT(SC2X(NP)*SC2X(NP) + SC2Y(NP)*SC2Y(NP))
                         ENX = - SC2X(NP)/DNR
@@ -2126,14 +2161,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)   
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC4(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC4(N)
                         DO WHILE (NC4(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2141,10 +2176,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC4(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 3)THEN
                         DNR = DSQRT(SC3X(NP)*SC3X(NP) + SC3Y(NP)*SC3Y(NP))
                         ENX = - SC3X(NP)/DNR
@@ -2154,14 +2189,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)     
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC1(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC1(N)
                         DO WHILE (NC1(N) .NE. n)
                             N1 = NOD(N, 1)
@@ -2169,10 +2204,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC1(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 4)THEN
                         DNR = DSQRT(SC4X(NP)*SC4X(NP) + SC4Y(NP)*SC4Y(NP))
                         ENX = - SC4X(NP)/DNR
@@ -2182,14 +2217,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)      
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N3) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC2(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC2(N)
                         DO WHILE (NC2(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2197,10 +2232,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC2(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ENDIF
                     
                     RHO = C1(NP)
@@ -2322,7 +2357,7 @@ PROGRAM MAINSOLVER
                     (F3I + F3(NCC3))*SX3 + & 
                     (G3I + G3(NCC3))*SY3 + & 
                     (F3I + F3(NCC4))*SX4 + &
-                    (G3I + G3(NCC4))*SY4)
+                    (G3I + G3(NCC4))*SY4) - VOL(I)*SOURCE3(I)
                 R4(I) = 0.5D0*(&
                     (F4I + F4(NCC1))*SX1 + &
                     (G4I + G4(NCC1))*SY1 + &                   
@@ -2493,14 +2528,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC3(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)    
                         DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC3(N)
                         DO WHILE (NC3(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2508,10 +2543,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N1) + Y(N2)) - (Y(N3) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC3(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 2)THEN
                         DNR = DSQRT(SC2X(NP)*SC2X(NP) + SC2Y(NP)*SC2Y(NP))
                         ENX = - SC2X(NP)/DNR
@@ -2521,14 +2556,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)   
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC4(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC4(N)
                         DO WHILE (NC4(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2536,10 +2571,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N2) + Y(N3)) - (Y(N1) + Y(N4)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC4(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 3)THEN
                         DNR = DSQRT(SC3X(NP)*SC3X(NP) + SC3Y(NP)*SC3Y(NP))
                         ENX = - SC3X(NP)/DNR
@@ -2549,14 +2584,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)     
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC1(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC1(N)
                         DO WHILE (NC1(N) .NE. n)
                             N1 = NOD(N, 1)
@@ -2564,10 +2599,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N3) + Y(N4)) - (Y(N1) + Y(N2)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC1(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ELSEIF(NS .EQ. 4)THEN
                         DNR = DSQRT(SC4X(NP)*SC4X(NP) + SC4Y(NP)*SC4Y(NP))
                         ENX = - SC4X(NP)/DNR
@@ -2577,14 +2612,14 @@ PROGRAM MAINSOLVER
                         N3 = NOD(NP, 3)
                         N4 = NOD(NP, 4)      
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N3) + Y(N2)))
-                        GPORT = C1(NP)*U(NP)*DELY
+                        GPORT = C1(NP)*U(NP)*DELY*YCC(NP)
                         N = NC2(NP)
                         N1 = NOD(N, 1)
                         N2 = NOD(N, 2)
                         N3 = NOD(N, 3)
                         N4 = NOD(N, 4)
                         DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                        GPORT = GPORT + C1(N)*U(N)*DELY
+                        GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                         N = NC2(N)
                         DO WHILE (NC2(N) .NE. N)
                             N1 = NOD(N, 1)
@@ -2592,10 +2627,10 @@ PROGRAM MAINSOLVER
                             N3 = NOD(N, 3)
                             N4 = NOD(N, 4)
                             DELY = 0.5D0*((Y(N4) + Y(N1)) - (Y(N2) + Y(N3)))
-                            GPORT = GPORT + C1(N)*U(N)*DELY
+                            GPORT = GPORT + C1(N)*U(N)*DELY*YCC(N)
                             N = NC2(N)
                         ENDDO
-                        GPORT = GPORT/DHYD
+                        GPORT = 2.0D0*GPORT/(DHYD**2)
                     ENDIF
                     
                     RHO = C1(NP)
@@ -2717,7 +2752,7 @@ PROGRAM MAINSOLVER
                     (F3I + F3(NCC3))*SX3 + & 
                     (G3I + G3(NCC3))*SY3 + & 
                     (F3I + F3(NCC4))*SX4 + &
-                    (G3I + G3(NCC4))*SY4)
+                    (G3I + G3(NCC4))*SY4) - VOL(I)*SOURCE3(I)
                 R4(I) = 0.5D0*(&
                     (F4I + F4(NCC1))*SX1 + &
                     (G4I + G4(NCC1))*SY1 + &                   
